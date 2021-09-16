@@ -1,11 +1,23 @@
-name: Test & Build
+name: Build & Deploy custom image manually
 on:
-  push:
-    branches:
-      - dev
-  pull_request:
-  release:
-    types: [published]
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Name of Branch to base build on"
+        required: false
+        default: dev
+      name:
+        description: 'Name of tag'
+        required: true
+      core:
+        description: 'Branch or tag of core repo'
+        required: false
+      web:
+        description: 'Branch or tag of web repo'
+        required: false
+      ftl:
+        description: 'Branch or tag of ftl repo'
+        required: false
 
 jobs:
   test:
@@ -13,33 +25,26 @@ jobs:
     env:
       ARCH: amd64
       DEBIAN_VERSION: buster
+      CORE_VERSION: ${{ github.event.inputs.core }}
+      WEB_VERSION: ${{ github.event.inputs.web }}
+      FTL_VERSION: ${{ github.event.inputs.ftl }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
+        with:
+          ref: ${{ github.event.inputs.branch }}
       - name: Run Tests
         run: |
           echo "Building ${ARCH}-${DEBIAN_VERSION}"
           ./gh-actions-test.sh
 
   build-and-publish:
-    if: github.event_name != 'pull_request'
     needs: test
     runs-on: ubuntu-latest
     steps:
       -
         name: Checkout
         uses: actions/checkout@v2
-      -
-        name: Get the tag name
-        run: |
-          echo "TAG=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
-      -
-        name: Docker meta
-        id: meta
-        uses: docker/metadata-action@v3
-        with:
-          images: pihole/pihole
-          github-token: ${{ secrets.GITHUB_TOKEN }}
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@v1
@@ -59,7 +64,10 @@ jobs:
           context: .
           platforms: linux/amd64, linux/arm64, linux/386, linux/arm/v7, linux/arm/v6, linux/ppc64le
           build-args: |
-            PIHOLE_VERSION=${{ env.TAG }}
+            CORE_VERSION=${{ github.event.inputs.core }}
+            WEB_VERSION=${{ github.event.inputs.web }}
+            FTL_VERSION=${{ github.event.inputs.ftl }}
+            PIHOLE_VERSION=${{ github.event.inputs.name }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: |
+            pihole/pihole:${{ github.event.inputs.name }}

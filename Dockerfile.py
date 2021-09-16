@@ -20,13 +20,7 @@ from docopt import docopt
 import os
 import sys
 import subprocess
-
-__version__ = None
-dot = os.path.abspath('.')
-with open('{}/VERSION'.format(dot), 'r') as v:
-    raw_version = v.read().strip()
-    __version__ = raw_version.replace('release/', 'release-')
-
+from dotenv import dotenv_values
 
 def build_dockerfiles(args) -> bool:
     all_success = True
@@ -60,12 +54,14 @@ def run_and_stream_command_output(command, environment_vars, verbose) -> bool:
 
 
 def build(docker_repo: str, arch: str, debian_version: str, hub_tag: str, show_time: bool, no_cache: bool, verbose: bool) -> bool:
-    create_tag = f'{docker_repo}:{__version__}-{arch}-{debian_version}'
+    # remove the `pihole/pihole:` from hub_tag for use elsewhere
+    tag_name = hub_tag.split(":",1)[1]
+    create_tag = f'{docker_repo}:{tag_name}'
     print(f' ::: Building {create_tag}')
     time_arg = 'time' if show_time else ''
     cache_arg = '--no-cache' if no_cache else ''
     build_env = os.environ.copy()
-    build_env['PIHOLE_VERSION'] = __version__
+    build_env['PIHOLE_VERSION'] = os.environ.get('GIT_TAG', None)
     build_env['DEBIAN_VERSION'] = debian_version
     build_command = f'{time_arg} docker-compose -f build.yml build {cache_arg} --pull {arch}'
     print(f' ::: Building {arch} into {create_tag}')
