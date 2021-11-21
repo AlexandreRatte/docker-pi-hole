@@ -2,10 +2,6 @@ name: Build & Deploy custom image manually
 on:
   workflow_dispatch:
     inputs:
-      branch:
-        description: "Name of Branch to base build on"
-        required: false
-        default: dev
       name:
         description: 'Name of tag'
         required: true
@@ -31,8 +27,6 @@ jobs:
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v2
-        with:
-          ref: ${{ github.event.inputs.branch }}
       - name: Run Tests
         run: |
           echo "Building ${ARCH}-${DEBIAN_VERSION}"
@@ -57,6 +51,13 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
           password: ${{ secrets.DOCKERHUB_PASS }}
+      - 
+        name: Login to GitHub Container Registry
+        uses: docker/login-action@v1
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
       -
         name: Build and push
         uses: docker/build-push-action@v2
@@ -70,4 +71,5 @@ jobs:
             PIHOLE_VERSION=${{ github.event.inputs.name }}
           push: true
           tags: |
-            pihole/pihole:${{ github.event.inputs.name }}
+            ${{ secrets.DOCKERHUB_NAMESPACE }}/pihole:${{ github.event.inputs.name }}
+            ghcr.io/${{ github.repository_owner }}/pihole:${{ github.event.inputs.name }}
